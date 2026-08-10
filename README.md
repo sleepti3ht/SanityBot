@@ -1,79 +1,160 @@
-# LISSKINS Market Bot (Private Project)
+# LISSKINS Market Bot
 
-> Async Telegram + WebSocket bot for monitoring market events, filtering items, and sending notifications.
+> Private case study: an async Telegram and WebSocket system for real-time marketplace monitoring.
+
+![Telegram bot demo](assets/main-menu.gif)
 
 ## Overview
 
-This project is a **private** (closed-source) bot that:
+LISSKINS Market Bot is a private, closed-source automation project for monitoring marketplace events and delivering Telegram notifications based on user-defined rules.
 
-- Connects to a marketplace via WebSocket and listens to real-time item updates.
-- Applies user-defined filters (`tasks`) based on price, gem/style and match mode.
-- Sends Telegram notifications and is designed to support auto-buy logic later.
+The source code is not public because the project contains business logic, marketplace integrations, and functionality that may be used as a commercial subscription product.
 
-The source code is kept private due to business logic and integrations, but this README describes the architecture and technologies used.
+## Product Capabilities
 
-## Tech Stack
+- Real-time marketplace event monitoring via WebSocket.
+- Fallback market polling for missed or delayed events.
+- Telegram interface for creating and managing monitoring tasks.
+- Price-based filtering.
+- Gem and style matching.
+- Two matching modes:
+  - `Exact item` — match a specific item name and rule.
+  - `Any item` — match any item containing a selected gem or style.
+- Current profile balance lookup through the marketplace API.
+- Reconnect and timeout handling.
+- VPS-ready deployment.
 
-- **Python** 3.11+
-- **python-telegram-bot** (async `Application`, `ConversationHandler`)
-- **aiohttp**, **websockets** — HTTP client and WebSocket listener
-- **python-dotenv** — configuration via `.env`
-- **systemd** — 24/7 deployment on a VPS
+## Demo
+
+### Main menu
+
+![Main menu](assets/main-menu.gif)
+
+### Exact item task
+
+![Exact item task](assets/create-exact-task.gif)
+
+### Any-item gem/style task
+
+![Any item task](assets/create-any-item-task.gif)
+
+### Matching notification
+
+![Notification demo](assets/notification-demo.gif)
 
 ## Architecture
 
-- `telegram_bot.py` — Telegram bot:
-  - Main menu with inline buttons.
-  - Conversation flows for creating tasks and updating settings.
-  - Match modes:
-    - **Exact item** — filter by item name + rule (gem/style + max price).
-    - **Any item** — filter by gem/style and price, independent of item name.
-  - Balance command (`My Balance`) integrated with the HTTP API (configurable endpoint).
+```text
+Telegram UI
+    │
+    ├── Task creation and management
+    ├── Match mode selection
+    └── Notifications
+          │
+          ▼
+      Task storage
+          │
+          ▼
+ ┌─────────────────────┐
+ │                     │
+ ▼                     ▼
+WebSocket listener   Market polling
+ │                     │
+ └──────────┬──────────┘
+            ▼
+     Common item processor
+            │
+            ▼
+     Task matching layer
+            │
+            ▼
+   Notification / purchase layer
+```
 
-- `websocket_parser.py` — WebSocket listener:
-  - Fetches a token and connects to the marketplace WebSocket.
-  - Processes `push` messages, extracts item payloads.
-  - Matches items against user tasks and triggers Telegram notifications.
-  - Implements reconnect with backoff and timeout handling.
+## Main Components
 
-- `tasks.py` — task storage and matching:
-  - User tasks are stored in `tasks.json`.
-  - Matching logic supports both exact-name and any-item modes.
-  - Helpers for gem and style extraction.
+### Telegram interface
 
-- `lisskins_client.py` — HTTP API integration:
-  - Placeholder for balance fetching (endpoint configurable via `.env`).
-  - Designed to be extended with purchase endpoints.
+- Async Telegram application.
+- Inline keyboard navigation.
+- Conversation-based task creation.
+- Task deletion and bulk task removal.
+- Settings management.
+- Balance display.
 
-## Features
+### WebSocket listener
 
-- Create tasks directly in Telegram:
-  - Choose match mode: **Exact item** / **Any item with gem/style**.
-  - Define max price and rule type (`gem` / `required_style`).
-- WebSocket-driven notifications for matching items.
-- Secret-safe logging:
-  - Sensitive values (`API_KEY`, tokens, authorization headers) are excluded or masked.
-- Ready for deployment on a VPS:
-  - Single `main.py` entry point: Telegram polling + WebSocket loop.
-  - `systemd` service configuration for automatic restart.
+- Authenticated WebSocket connection.
+- Push event parsing.
+- Reconnect after connection errors.
+- Opening-handshake timeout handling.
+- Shared item-processing pipeline.
 
-## Security & Logging
+### Market polling
 
-- Secrets are stored only in `.env` (not committed to Git).
-- Logs avoid printing raw secrets and full HTTP headers.
-- Optional logging filter masks common secret patterns (e.g. `api_key=...`, `token=...`).
+Polling is used as a fallback source when WebSocket delivery is delayed or interrupted.
 
-## Deployment
+Both WebSocket events and polling results pass through the same item-processing function. This avoids duplicating matching logic and ensures consistent notification behavior.
 
-The bot is designed to run 24/7 on a Linux VPS:
+### Task matching
 
-- Create a Python virtual environment and install dependencies.
-- Provide a `.env` with `BOT_TOKEN`, `API_KEY`, WebSocket URL, etc.
-- Create a `systemd` unit for `main.py` with `Restart=always`.
-- Optionally configure HTTP(S)/SOCKS5 proxy for Telegram only.
+Tasks support two modes:
 
-## Status
+- `Exact item`: item name, price, and gem/style must match.
+- `Any item`: item name is ignored; only price and gem/style are checked.
 
-- **Type:** private / closed-source
-- **Role:** architecture, backend, deployment
-- **Open to discussion** in interviews (without exposing business-sensitive details).
+### API integration
+
+The API client is responsible for:
+
+- Profile balance requests.
+- WebSocket authentication.
+- Future purchase operations.
+
+## Technology Stack
+
+- Python
+- `asyncio`
+- `python-telegram-bot`
+- `aiohttp`
+- `websockets`
+- `python-dotenv`
+- JSON-based task storage during MVP
+- `systemd` for VPS deployment
+
+## Engineering Highlights
+
+- Async Telegram polling and WebSocket processing in one application.
+- Shared processing path for WebSocket and polling sources.
+- Reconnect logic with timeout handling and backoff.
+- Configurable user-defined matching rules.
+- Separation of Telegram UI, API access, WebSocket parsing, and task matching.
+- Environment-based secret configuration.
+- Secret-safe logging.
+
+## Security
+
+- API keys and bot tokens are stored outside the source code.
+- `.env` is excluded from Git.
+- Sensitive headers and tokens are not included in logs or demos.
+- The public repository contains only screenshots, GIFs, and an architectural overview.
+
+## Roadmap
+
+- [x] Telegram task management.
+- [x] Exact-item matching.
+- [x] Any-item gem/style matching.
+- [x] WebSocket notifications.
+- [x] Profile balance lookup.
+- [ ] Market polling fallback.
+- [ ] VPS deployment.
+- [ ] Dry-run purchase mode.
+- [ ] Manual purchase confirmation.
+- [ ] Automatic purchase with strict safety limits.
+
+## Project Status
+
+- Type: private / closed-source case study
+- Development stage: MVP testing
+- Role: architecture, backend implementation, integrations, testing, and deployment
+- Source code: private

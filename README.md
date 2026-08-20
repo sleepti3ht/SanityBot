@@ -33,32 +33,20 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
-    LIS-SKINS Platform
-┌─────────────────────────┐
-│  REST API + WebSocket   │
-──────────┬──────────────┘
-           │
-┌──────────▼──────────────┐
-│   Sanity Trading Bot    │
-│  ┌───────────────────┐  │
-│  │ WebSocket + Poll  │  │
-│  │   (Hybrid mode)   │  │
-│  └─────────┬─────────┘  │
-│            │            │
-│  ┌─────────▼─────────┐ │
-│  │   Auto-Buyer      │ │
-│  │  (3 workers +     │ │
-│  │   seen_ids)       │ │
-│  └─────────┬─────────┘ │
-└────────────┼────────────
-             │
-┌────────────┴────────────┐
-│            │            │
-▼            ▼            ▼
-┌───────┐ ┌───────┐ ┌───────────┐
-│SQLite │ │ Cache │ │ Telegram │
-│ DB │ │(Tasks)│ │ Bot │
-└───────┘ └───────┘ └───────────┘
+## 📊 Architecture
+
+```mermaid
+graph TD
+    A[LIS-SKINS<br/>API + WebSocket] --> B[Sanity Trading Bot]
+    B --> C[WebSocket + Polling<br/>Hybrid mode]
+    C --> D[Auto-Buyer<br/>3 workers + seen_ids]
+    D --> E[SQLite DB]
+    D --> F[Task Cache]
+    D --> G[Telegram Bot]
+    
+    style A fill:#2d3748,stroke:#4a5568,color:#fff
+    style B fill:#4a5568,stroke:#2d3748,color:#fff
+    style D fill:#667eea,stroke:#4a5568,color:#fff
 
 ## 🔧 Key Optimizations
 

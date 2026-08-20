@@ -41,6 +41,7 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
+```
 graph TD
     %% --- Styles ---
     classDef source fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
@@ -76,7 +77,7 @@ graph TD
 
     %% --- Links ---
     C -.->|Logs purchases| E
-
+```
 ## 🔧 Key Optimizations
 
 | Optimization | Impact |

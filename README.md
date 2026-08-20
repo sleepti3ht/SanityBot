@@ -35,7 +35,6 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
-## 📊 Architecture
 
 ```mermaid
 graph TD

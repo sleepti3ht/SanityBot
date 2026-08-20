@@ -23,12 +23,6 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **Self-populating bot database** — collects seller data for pre-scan analysis
 - **Pre-scan marketplace** — check database before launching auto-buy
 - 
-### Data Pipeline
-
-1. **Collection** — WebSocket collects seller SteamIDs → Bot Database
-2. **Parsing** — Parser bot scans specific items from steamid.txt → CSV
-3. **Manual Review** — Filter promising items in Excel
-4. **Auto-Trading** — Add to tasks → Sanity Bot auto-purchases
 
 **Result:** Semi-automated pipeline with manual control over high-value items
 ## 🛠 Tech Stack
@@ -41,7 +35,9 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
-```
+## 📊 Architecture
+
+```mermaid
 graph TD
     %% --- Styles ---
     classDef source fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
@@ -50,7 +46,7 @@ graph TD
     classDef analytics fill:#ed8936,stroke:#dd6b20,color:#fff;
     classDef user fill:#f56565,stroke:#c53030,color:#fff;
 
-    %% --- Block 1: Data and Core ---
+    %% --- Block 1: Sources & Core Engine ---
     subgraph "1. Data Collection & Core Engine"
         A[LIS-SKINS Platform]:::source -->|WebSocket 0-100ms| B[Sanity Bot Core]:::core
         A -->|REST API 10-30s| B
@@ -67,7 +63,7 @@ graph TD
         G --> H[CSV / Excel<br/>Filtered Rare Lots]:::analytics
     end
 
-    %% --- Block 3: Management and Tasks ---
+    %% --- Block 3: Manual Control & Feedback ---
     subgraph "3. Manual Control & Tasks"
         H --> I((Manual Review<br/>Excel Analysis)):::user
         I -->|Adds high-value items| J[Task System<br/>Filters & Thresholds]:::core
@@ -75,9 +71,15 @@ graph TD
         D --> I
     end
 
-    %% --- Links ---
+    %% --- Connections ---
     C -.->|Logs purchases| E
 ```
+### Data Pipeline
+
+1. **Collection** — WebSocket collects seller SteamIDs → Bot Database
+2. **Parsing** — Parser bot scans specific items from steamid.txt → CSV
+3. **Manual Review** — Filter promising items in Excel
+4. **Auto-Trading** — Add to tasks → Sanity Bot auto-purchases
 ## 🔧 Key Optimizations
 
 | Optimization | Impact |

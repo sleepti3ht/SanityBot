@@ -33,16 +33,26 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
-┌─────────────────┐ ┌──────────────────┐ ┌─────────────────┐
-│ LIS-SKINS API │────▶│ WebSocket Hub │────▶│ Trading Bot │
-│ (Polling 10s) │ │ (0–100ms) │ │ (Auto-buy) │
-└─────────────────┘ └──────────────────┘ └─────────────────┘
-│
-▼
-┌─────────────────┐
-│ Telegram Bot │
-│ (Commands) │
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ LIS-SKINS Platform │
+├─────────────────────┬───────────────────────────────────────┤
+│ REST API │ WebSocket Server │
+│ (Polling 10-30s) │ (Real-time 0-100ms) │
+└──────────┬──────────┴──────────────────────────────────────┘
+│ │
+▼ ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Sanity Trading Bot │
+─────────────────────┬─────────────────────┬─────────────────┤
+│ Polling Worker │ WebSocket Hub │ Auto-Buyer │
+│ (Backup scan) │ (Main listener) │ (3 workers) │
+└──────────┬──────────┴──────────┬──────────┴────────────────┘
+│ │ │
+▼ ▼ ▼
+─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Task Cache │ │ SQLite DB │ │ Telegram Bot │
+│ (In-memory) │ │ (Tasks/Stats) │ │ (Commands) │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
 
 ## 🔧 Key Optimizations
 

@@ -33,21 +33,19 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
-LIS-SKINS Platform
-↓
-├── REST API (polling 10-30s)
-└── WebSocket (0-100ms)
-↓
-Sanity Trading Bot
-↓
-┌───────┴───────┐
-↓ ↓
-Auto-Buyer Task Cache
-(3 workers) (In-memory)
-↓
-├── SQLite DB (tasks/stats)
-├── seen_ids (duplicates)
-└── Telegram Bot (alerts)
+```mermaid
+graph TD
+    A[LIS-SKINS<br/>API + WebSocket] --> B[Sanity Trading Bot]
+    B --> C[WebSocket + Polling<br/>Hybrid mode]
+    C --> D[Auto-Buyer<br/>3 workers + seen_ids]
+    D --> E[SQLite DB]
+    D --> F[Task Cache]
+    D --> G[Telegram Bot]
+    
+    style A fill:#2d3748,stroke:#4a5568,color:#fff
+    style B fill:#4a5568,stroke:#2d3748,color:#fff
+    style D fill:#667eea,stroke:#4a5568,color:#fff
+```
 
 ## 🔧 Key Optimizations
 

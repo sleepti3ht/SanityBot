@@ -22,7 +22,15 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **Rate limit handling** — exponential backoff on 429 errors
 - **Self-populating bot database** — collects seller data for pre-scan analysis
 - **Pre-scan marketplace** — check database before launching auto-buy
+- 
+### Data Pipeline
 
+1. **Collection** — WebSocket collects seller SteamIDs → Bot Database
+2. **Parsing** — Parser bot scans specific items from steamid.txt → CSV
+3. **Manual Review** — Filter promising items in Excel
+4. **Auto-Trading** — Add to tasks → Sanity Bot auto-purchases
+
+**Result:** Semi-automated pipeline with manual control over high-value items
 ## 🛠 Tech Stack
 
 - **Python 3.12+**
@@ -33,19 +41,41 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **asyncio** — async architecture
 
 ## 📊 Architecture
-```mermaid
 graph TD
-    A[LIS-SKINS<br/>API + WebSocket] --> B[Sanity Trading Bot]
-    B --> C[WebSocket + Polling<br/>Hybrid mode]
-    C --> D[Auto-Buyer<br/>3 workers + seen_ids]
-    D --> E[SQLite DB]
-    D --> F[Task Cache]
-    D --> G[Telegram Bot]
-    
-    style A fill:#2d3748,stroke:#4a5568,color:#fff
-    style B fill:#4a5568,stroke:#2d3748,color:#fff
-    style D fill:#667eea,stroke:#4a5568,color:#fff
-```
+    %% --- Styles ---
+    classDef source fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
+    classDef core fill:#4c51bf,stroke:#434190,color:#fff,stroke-width:2px;
+    classDef auto fill:#38b2ac,stroke:#319795,color:#fff;
+    classDef analytics fill:#ed8936,stroke:#dd6b20,color:#fff;
+    classDef user fill:#f56565,stroke:#c53030,color:#fff;
+
+    %% --- Block 1: Data and Core ---
+    subgraph "1. Data Collection & Core Engine"
+        A[LIS-SKINS Platform]:::source -->|WebSocket 0-100ms| B[Sanity Bot Core]:::core
+        A -->|REST API 10-30s| B
+        
+        B --> C[Auto-Buyer Engine<br/>3 Async Workers + seen_ids]:::auto
+        C --> D[Telegram Alerts]:::auto
+    end
+
+    %% --- Block 2: Analytics Pipeline ---
+    subgraph "2. Analytics & Parser Pipeline"
+        B -->|Collects SteamIDs| E[(Bot Database<br/>Sellers with Gems/Styles)]:::analytics
+        E --> F[steamid.txt]:::analytics
+        F --> G[Parser Bot<br/>Targeted Scraping]:::analytics
+        G --> H[CSV / Excel<br/>Filtered Rare Lots]:::analytics
+    end
+
+    %% --- Block 3: Management and Tasks ---
+    subgraph "3. Manual Control & Tasks"
+        H --> I((Manual Review<br/>Excel Analysis)):::user
+        I -->|Adds high-value items| J[Task System<br/>Filters & Thresholds]:::core
+        J --> C
+        D --> I
+    end
+
+    %% --- Links ---
+    C -.->|Logs purchases| E
 
 ## 🔧 Key Optimizations
 

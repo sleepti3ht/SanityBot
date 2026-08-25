@@ -22,7 +22,6 @@ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)
 - **Rate limit handling** — exponential backoff on 429 errors
 - **Self-populating bot database** — collects seller data for pre-scan analysis
 - **Pre-scan marketplace** — check database before launching auto-buy
-- 
 
 **Result:** Semi-automated pipeline with manual control over high-value items
 ## 🛠 Tech Stack
@@ -80,6 +79,15 @@ graph TD
 3. **Manual Review** — Filter promising items in Excel
 4. **Auto-Trading** — Add to tasks → Sanity Bot auto-purchases
 ## 🔧 Key Optimizations
+
+## ⚙️ Performance Tuning & Configuration
+
+The bot is designed for fine-grained control to balance speed with API rate limits. Key parameters are tunable based on marketplace load:
+
+- `WORKER_COUNT`: Adjusted dynamically (e.g., 3–7 workers). Higher counts increase throughput but risk HTTP 429 errors.
+- `POLL_INTERVAL_SECONDS`: Set to ~15s as a sweet spot between data freshness and server load.
+- `MAX_CURSOR_PAGES_PER_TASK`: Limits pagination depth (e.g., 30 pages) to prevent memory spikes and long-running blocking requests.
+- **Sequential Fallback:** If parallel requests trigger rate limits, the system gracefully degrades to sequential processing to maintain 0% error rate.
 
 | Optimization | Impact |
 |--------------|--------|

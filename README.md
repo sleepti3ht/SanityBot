@@ -113,6 +113,29 @@ The bot is designed for fine-grained control to balance speed with API rate limi
 
 ## 📈 Performance
 
+Live timings from the bot console (one `Scan pass` = one REST polling cycle):
+
+```log
+2026-08-27 22:35:24,165 [INFO] lis-market-poller: Scan pass: min=60ms max=493ms avg=213ms | checked=904 matched=0
+2026-08-27 22:35:52,650 [INFO] lis-market-poller: Scan pass: min=57ms max=448ms avg=204ms | checked=904 matched=0
+2026-08-27 22:36:21,635 [INFO] lis-market-poller: Scan pass: min=131ms max=464ms avg=211ms | checked=904 matched=0
+2026-08-27 22:36:48,912 [INFO] lis-market-poller: Scan pass: min=53ms max=376ms avg=185ms | checked=904 matched=0
+2026-08-27 22:37:20,683 [INFO] lis-market-poller: Scan pass: min=73ms max=540ms avg=254ms | checked=895 matched=0
+2026-08-27 22:37:49,206 [INFO] lis-market-poller: Scan pass: min=69ms max=459ms avg=204ms | checked=895 matched=0
+2026-08-27 22:38:16,723 [INFO] lis-market-poller: Scan pass: min=109ms max=356ms avg=189ms | checked=895 matched=0
+2026-08-27 22:38:44,481 [INFO] lis-market-poller: Scan pass: min=57ms max=484ms avg=193ms | checked=895 matched=0
+```
+
+**Typical numbers:**
+
+| Metric | Value |
+|---|---|
+| Polling cycle (WebSocket + REST fallback) | ~15s between scans |
+| Items checked per pass | ~895–904 |
+| Pass duration (min / avg / max) | ~53ms / ~185–254ms / ~356–540ms |
+| Items matched per pass | 0 (waiting for live signals) |
+| 429 / rate-limit errors | 0 |
+
 - **Item processing time:** 100–250ms
 - **Polling cycle time:** 8–9 seconds
 - **429 errors:** 0

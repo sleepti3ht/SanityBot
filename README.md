@@ -1,4 +1,4 @@
-# 🎯 LIS-SKINS Trading Bot
+# 🎯 SanityBot(LIS-SKINS Trading Bot)
 
 > **High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)** with real-time WebSocket notifications and instant auto-purchase. Semi-automated pipeline with manual control over high-value items.
 

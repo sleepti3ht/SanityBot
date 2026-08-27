@@ -116,7 +116,7 @@ The bot is designed for fine-grained control to balance speed with API rate limi
 - **Item processing time:** 100–250ms
 - **Polling cycle time:** 8–9 seconds
 - **429 errors:** 0
-- **Profit:** 400–500% on rare items
+- **Profit:** 300–1500% on rare items
 
 ---
 

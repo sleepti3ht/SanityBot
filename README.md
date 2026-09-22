@@ -154,6 +154,20 @@ Live timings from the bot console (one `Scan pass` = one REST polling cycle):
 
 ---
 
+## 📱 User Interface & Observability
+
+**31+ million items checked** with full transparency — all metrics accessible via Telegram:
+
+### Real-Time Monitoring:
+- **Volume Metrics** — total checked, matched, sent to processor
+- **Latency Tracking** — min/max/avg per scan cycle (typical: 0ms/3s/99ms)
+- **Autobuy Status** — toggle on/off without restart
+- **Polling Controls** — enable/disable REST fallback independently
+
+### Example Dashboard:
+![SanityBot Statistics](screenshots/statistics.png)
+---
+
 ## 🎯 Killer Features
 
 1. **Self-populating bot database** — auto-collects SteamIDs of sellers with gems/styles via WebSocket

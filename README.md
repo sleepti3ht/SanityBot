@@ -1,6 +1,6 @@
-# 🎯 SanityBot(LIS-SKINS Trading Bot)
+# 🎯 SanityBot (LIS-SKINS Trading Bot)
 
-> **High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)** with real-time WebSocket notifications and instant auto-purchase. Semi-automated pipeline with manual control over high-value items.
+> **High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)** with real-time WebSocket notifications and instant auto-purchase. No `check_availability()` delays — direct purchase saves 200–400ms per item.
 
 ![python](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![status](https://img.shields.io/badge/status-active-success)
@@ -12,20 +12,21 @@
 
 ### Core
 - **Real-time WebSocket notifications** — 0–100ms latency for new listings
-- **Instant auto-purchase** — no `check_availability()` delays (saves 200–400ms)
+- **Instant auto-purchase** — direct `POST /market/buy` without `check_availability()` (saves 200–400ms)
 - **Flexible task system** — filter by item name, gems, styles, max price
-- **Hybrid polling + WebSocket** — backup polling every 10–30s for reliability
-- **Task caching** — in-memory cache to minimize file I/O delays
+- **Hybrid polling + WebSocket** — backup REST polling every 15s for reliability
+- **Mass import/export** — add 100+ tasks via text: `Item Name;max_price;max_quantity;rule_type;rule_value`
+- **Quick quantity adjustment** — `➕` `➖` buttons in task list
 - **Automatic retry** — handles network errors and rate limits (HTTP 429)
 - **Steam seller database** — auto-collects SteamIDs of sellers with gems/styles
 - **Telegram bot** — manage tasks and receive notifications
 
 ### Advanced
 - **3 async workers** — parallel item processing (tunable)
-- **Duplicate protection** — `seen_ids` prevents double-buying
+- **Duplicate protection** — `PROCESSED_IDS` with TTL prevents double-buying
+- **Atomic JSON writes** — protects `tasks.json` from corruption on concurrent writes
 - **Rate limit handling** — exponential backoff on 429 errors
 - **Self-populating bot database** — collects seller data for pre-scan analysis
-- **Pre-scan marketplace** — check database before launching auto-buy
 
 **Result:** Semi-automated pipeline with manual control over high-value items
 
@@ -38,9 +39,10 @@
 | Python 3.12+ | Core language |
 | aiohttp | Async HTTP requests |
 | Centrifuge | WebSocket client for real-time notifications |
-| aiogram | Telegram bot framework |
-| SQLite | Task and stats storage |
+| python-telegram-bot | Telegram bot framework |
+| SQLite | Steam seller database |
 | asyncio | Async architecture |
+| JSON | Task storage (atomic writes) |
 
 ---
 
@@ -58,8 +60,8 @@ classDef user fill:#f56565,stroke:#c53030,color:#fff;
 %% --- Block 1: Sources & Core Engine ---
 subgraph "1. Data Collection & Core Engine"
 A[LIS-SKINS Platform]:::source -->|WebSocket 0-100ms| B[Sanity Bot Core]:::core
-A -->|REST API 10-30s| B
-B --> C[Auto-Buyer Engine<br/>3 Async Workers + seen_ids]:::auto
+A -->|REST API 15s| B
+B --> C[Auto-Buyer Engine<br/>3 Async Workers + PROCESSED_IDS]:::auto
 C --> D[Telegram Alerts]:::auto
 end
 
@@ -87,7 +89,7 @@ C -.->|Logs purchases| E
 1. **Collection** — WebSocket collects seller SteamIDs → Bot Database
 2. **Parsing** — Parser bot scans specific items from steamid.txt → CSV
 3. **Manual Review** — Filter promising items in Excel
-4. **Auto-Trading** — Add to tasks → Sanity Bot auto-purchases
+4. **Auto-Trading** — Add to tasks (via import or UI) → Sanity Bot auto-purchases
 
 ---
 
@@ -97,17 +99,18 @@ The bot is designed for fine-grained control to balance speed with API rate limi
 
 - `WORKER_COUNT`: Adjusted dynamically (e.g., 3–7 workers). Higher counts increase throughput but risk HTTP 429 errors.
 - `POLL_INTERVAL_SECONDS`: Set to ~15s as a sweet spot between data freshness and server load.
-- `MAX_CURSOR_PAGES_PER_TASK`: Limits pagination depth (e.g., 30 pages) to prevent memory spikes and long-running blocking requests.
+- `MAX_CURSOR_PAGES_PER_TASK`: Limits pagination depth (e.g., 15 pages) to prevent memory spikes and long-running blocking requests.
 - **Sequential Fallback:** If parallel requests trigger rate limits, the system gracefully degrades to sequential processing to maintain 0% error rate.
 
 | Optimization | Impact |
 |--------------|--------|
-| WebSocket instead of polling | 0–100ms vs 10–30s |
+| WebSocket instead of polling | 0–100ms vs 15s |
 | No `check_availability()` | -200–400ms per purchase |
 | In-memory task cache | -10–50ms per item |
 | 3 async workers | Parallel processing |
 | Retry + backoff | Stability on 429 |
-| Sequential fallback | 0 429 errors |
+| Atomic JSON writes | No file corruption |
+| TTLCache for PROCESSED_IDS | No OOM crashes |
 
 ---
 
@@ -116,28 +119,23 @@ The bot is designed for fine-grained control to balance speed with API rate limi
 Live timings from the bot console (one `Scan pass` = one REST polling cycle):
 
 ```log
-2026-08-27 22:35:24,165 [INFO] lis-market-poller: Scan pass: min=60ms max=493ms avg=213ms | checked=904 matched=0
-2026-08-27 22:35:52,650 [INFO] lis-market-poller: Scan pass: min=57ms max=448ms avg=204ms | checked=904 matched=0
-2026-08-27 22:36:21,635 [INFO] lis-market-poller: Scan pass: min=131ms max=464ms avg=211ms | checked=904 matched=0
-2026-08-27 22:36:48,912 [INFO] lis-market-poller: Scan pass: min=53ms max=376ms avg=185ms | checked=904 matched=0
-2026-08-27 22:37:20,683 [INFO] lis-market-poller: Scan pass: min=73ms max=540ms avg=254ms | checked=895 matched=0
-2026-08-27 22:37:49,206 [INFO] lis-market-poller: Scan pass: min=69ms max=459ms avg=204ms | checked=895 matched=0
-2026-08-27 22:38:16,723 [INFO] lis-market-poller: Scan pass: min=109ms max=356ms avg=189ms | checked=895 matched=0
-2026-08-27 22:38:44,481 [INFO] lis-market-poller: Scan pass: min=57ms max=484ms avg=193ms | checked=895 matched=0
+2026-09-08 07:09:57,273 [INFO] lis-market-poller: Scan pass: min=0ms max=363ms avg=187ms | checked=232 matched=0
+2026-09-08 07:10:24,083 [INFO] lis-market-poller: Polling scan_once started, enabled=True
+2026-09-08 07:10:35,983 [INFO] lis-market-poller: Scan pass: min=0ms max=348ms avg=188ms | checked=232 matched=0
 ```
 
 **Typical numbers:**
 
 | Metric | Value |
 |---|---|
-| Polling cycle (WebSocket + REST fallback) | ~15s between scans |
-| Items checked per pass | ~895–904 |
-| Pass duration (min / avg / max) | ~53ms / ~185–254ms / ~356–540ms |
-| Items matched per pass | 0 (waiting for live signals) |
+| Polling cycle (REST fallback) | ~15s between scans |
+| Items checked per pass | ~232–904 |
+| Pass duration (min / avg / max) | ~0ms / ~187–188ms / ~348–363ms |
+| Items matched per pass | 0–5 (waiting for live signals) |
 | 429 / rate-limit errors | 0 |
 
 - **Item processing time:** 100–250ms
-- **Polling cycle time:** 8–9 seconds
+- **Polling cycle time:** ~15s
 - **429 errors:** 0
 - **Profit:** 300–1500% on rare items
 
@@ -148,7 +146,9 @@ Live timings from the bot console (one `Scan pass` = one REST polling cycle):
 1. **Self-populating bot database** — auto-collects SteamIDs of sellers with gems/styles via WebSocket
 2. **Pre-scan marketplace** — check database for potential items before launching auto-buy
 3. **Hybrid polling + WebSocket** — maximum speed + reliability
-4. **Zero-duplicate protection** — `seen_ids` prevents double-buying
+4. **Zero-duplicate protection** — `PROCESSED_IDS` with TTL prevents double-buying
+5. **Atomic JSON writes** — protects `tasks.json` from corruption
+6. **Mass import/export** — add 100+ tasks via text in one message
 
 ---
 
@@ -156,12 +156,14 @@ Live timings from the bot console (one `Scan pass` = one REST polling cycle):
 
 | Command | Description |
 |---|---|
-| `/add` | Add a task (name, gem, style, max price) |
-| `/list` | Show active tasks |
-| `/del` | Delete a task |
-| `/clear` | Clear all tasks |
-| `/balance` | Show balance |
-| `/stats` | Purchase statistics |
+| `/start` | Open main menu |
+| `📋 My Tasks` | View tasks with `➕` `➖` buttons |
+| `📝 Create Task` | Create task via wizard |
+| `📥 Import Tasks` | Mass import: `Item Name;max_price;max_quantity;rule_type;rule_value` |
+| `📤 Export Tasks` | Export all tasks to text |
+| `💰 My Balance` | Show balance |
+| `📊 Statistics` | Show polling stats |
+| `🤖 Autobuy: ON/OFF` | Toggle auto-purchase |
 
 ---
 
@@ -170,10 +172,12 @@ Live timings from the bot console (one `Scan pass` = one REST polling cycle):
 ```bash
 # .env
 API_KEY=your_api_key
-LISSKINS_API_URL=https://api.lis-skins.com
+BOT_TOKEN=your_telegram_bot_token
+CHAT_ID=your_telegram_chat_id
 WS_URL=wss://ws.lis-skins.com/connection/websocket
 TRADE_PARTNER=your_steam_partner
 TRADE_TOKEN=your_steam_token
+ALLOWED_USER_IDS=your_telegram_user_id
 ```
 
 > ⚠️ Never commit `.env` — keep secrets private.
@@ -188,6 +192,9 @@ TRADE_TOKEN=your_steam_token
 ### Auto-purchase Log
 ![Auto-purchase Log](screenshots/alert.png)
 
+### Task Import
+![Task Import](screenshots/import.png)
+
 ### Settings
 ![Seller Database](screenshots/settings.png)
 
@@ -198,8 +205,10 @@ TRADE_TOKEN=your_steam_token
 - [ ] **Multi-account support** — parallel purchases from multiple accounts
 - [ ] **Web dashboard** — stats, charts, task management
 - [ ] **Integration with other marketplaces** — Steam, CS.MONEY, etc.
+- [ ] **Balance check before purchase** — prevent capital lockup
 
 ---
+
 
 ## 🤝 Contributing
 

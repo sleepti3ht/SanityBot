@@ -84,12 +84,25 @@ end
 %% --- Connections ---
 C -.->|Logs purchases| E
 ```
-
+---
 ### Data Pipeline
 1. **Collection** — WebSocket collects seller SteamIDs → Bot Database
 2. **Parsing** — Parser bot scans specific items from steamid.txt → CSV
 3. **Manual Review** — Filter promising items in Excel
 4. **Auto-Trading** — Add to tasks (via import or UI) → Sanity Bot auto-purchases
+
+## 🎯 Architecture Trade-offs
+
+### Why JSON instead of SQLite for tasks?
+- **Latency:** In-memory cache + atomic JSON writes = ~5ms vs ~15ms for SQLite transactions
+- **Simplicity:** Single file backup/restore, no WAL files
+- **Volume:** <1000 tasks = JSON is faster and simpler
+
+### Why PROCESSED_IDS with TTL instead of strict idempotency?
+- **Business goal:** Snipe ultra-rare items with 300%+ margin
+- **Trade-off:** Accepting potential double-purchase (capital lockup for 5 min) 
+  is better than missing the item due to DB latency
+- **Protection:** TTLCache prevents OOM, atomic writes prevent corruption
 
 ---
 

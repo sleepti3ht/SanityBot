@@ -21,12 +21,12 @@
 - **Steam seller database** — auto-collects SteamIDs of sellers with gems/styles
 - **Telegram bot** — manage tasks and receive notifications
 
-### Advanced
-- **3 async workers** — parallel item processing (tunable)
-- **Duplicate protection** — `PROCESSED_IDS` with TTL prevents double-buying
-- **Atomic JSON writes** — protects `tasks.json` from corruption on concurrent writes
-- **Rate limit handling** — exponential backoff on 429 errors
-- **Self-populating bot database** — collects seller data for pre-scan analysis
+### Reliability
+- **Single async processing worker** — preserves predictable purchase ordering
+- **In-process duplicate protection** — shared bounded `OrderedDict` caches prevent repeated processing from WebSocket and polling
+- **Atomic JSON replacement** — writes task updates through a temporary file and `os.replace()`
+- **Retry handling** — retries selected network failures and respects HTTP 429 retry delays
+- **Seller SQLite database** — records discovered seller SteamIDs and listing metadata when available in item payloads
 
 **Result:** Semi-automated pipeline with manual control over high-value items
 
@@ -61,7 +61,7 @@ classDef user fill:#f56565,stroke:#c53030,color:#fff;
 subgraph "1. Data Collection & Core Engine"
 A[LIS-SKINS Platform]:::source -->|WebSocket 0-100ms| B[Sanity Bot Core]:::core
 A -->|REST API 15s| B
-B --> C[Auto-Buyer Engine<br/>3 Async Workers + PROCESSED_IDS]:::auto
+B --> C[Auto-Buyer Engine<br/>~Workers + Purchase Lock + ID Deduplication]:::auto
 C --> D[Telegram Alerts]:::auto
 end
 
@@ -91,29 +91,34 @@ C -.->|Logs purchases| E
 3. **Manual Review** — Filter promising items in Excel
 4. **Auto-Trading** — Add to tasks (via import or UI) → Sanity Bot auto-purchases
 
-## 🎯 Architecture Trade-offs
+## Architecture trade-offs
 
-### Why JSON instead of SQLite for tasks?
-- **Latency:** In-memory cache + atomic JSON writes = ~5ms vs ~15ms for SQLite transactions
-- **Simplicity:** Single file backup/restore, no WAL files
-- **Volume:** <1000 tasks = JSON is faster and simpler
+### Why JSON for tasks?
+- **Simplicity:** Tasks are stored in one readable and portable `tasks.json` file.
+- **Small-scale workload:** For a personal bot with a limited number of tasks, JSON is sufficient and easy to back up.
+- **Safe replacement:** Task updates use a temporary file followed by `os.replace()` to avoid partial JSON files if a write is interrupted.
+- **Trade-off:** JSON is not a replacement for a transactional multi-process database. The bot is designed to run as one process.
 
-### Why PROCESSED_IDS with TTL instead of strict idempotency?
-- **Business goal:** Snipe ultra-rare items with 300%+ margin
-- **Trade-off:** Accepting potential double-purchase (capital lockup for 5 min) 
-  is better than missing the item due to DB latency
-- **Protection:** TTLCache prevents OOM, atomic writes prevent corruption
+### Why bounded in-memory deduplication?
+- **Goal:** Avoid processing the same listing twice when it arrives through WebSocket, polling, or repeated events.
+- **Mechanism:** `IN_FLIGHT_IDS` blocks simultaneous handling; `PROCESSED_IDS` remembers recently processed IDs.
+- **Memory safety:** Both caches have maximum sizes and evict the oldest IDs when full.
+- **Trade-off:** This is in-process best-effort deduplication, not durable idempotency across restarts.
 
 ---
 
-## ⚙️ Performance Tuning & Configuration
+## ⚙️ Configuration and tuning
 
-The bot is designed for fine-grained control to balance speed with API rate limits. Key parameters are tunable based on marketplace load:
+The bot prioritizes fast WebSocket handling and keeps REST polling as a fallback for existing listings.
 
-- `WORKER_COUNT`: Adjusted dynamically (e.g., 3–7 workers). Higher counts increase throughput but risk HTTP 429 errors.
-- `POLL_INTERVAL_SECONDS`: Set to ~15s as a sweet spot between data freshness and server load.
-- `MAX_CURSOR_PAGES_PER_TASK`: Limits pagination depth (e.g., 15 pages) to prevent memory spikes and long-running blocking requests.
-- **Sequential Fallback:** If parallel requests trigger rate limits, the system gracefully degrades to sequential processing to maintain 0% error rate.
+- `WORKER_COUNT`: Number of queue workers for item processing. The current default is `1`, which keeps purchase attempts ordered and works with the global purchase lock.
+- `POLL_INTERVAL_SECONDS`: Delay between REST polling cycles. The current value is `15`.
+- `MAX_CURSOR_PAGES_PER_TASK`: Maximum number of pagination pages scanned for one exact-name task. The current value is `15`.
+- `MAX_PROCESSED`: Maximum number of recently processed listing IDs kept in memory.
+- `MAX_IN_FLIGHT`: Maximum number of listing IDs currently marked as being processed.
+- `ITEM_QUEUE` size: Maximum number of incoming items waiting for processing before new events are dropped and logged.
+
+Increasing polling intensity or worker count may increase API load, rate-limit risk, and duplicate-purchase complexity. Measure with logs before changing these values.
 
 | Optimization | Impact |
 |--------------|--------|
@@ -223,7 +228,7 @@ ALLOWED_USER_IDS=your_telegram_user_id
 ![Task Import](screenshots/import.png)
 
 ### Settings
-![Seller Database](screenshots/settings.png)
+![Settings](screenshots/settings.png)
 
 ---
 

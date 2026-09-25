@@ -223,13 +223,16 @@ ALLOWED_USER_IDS=your_telegram_user_id
 ## 📸 Screenshots
 
 ### Telegram Bot
+
 ![Telegram Bot](screenshots/menu.png)
 
 ### Auto-purchase Log
-![Auto-purchase Log](screenshots/alert.png)
+![Auto-purchase Log](screenshots/alert_3.png)
+![Auto-purchase Log](screenshots/alert_2.png)
+![Auto-purchase Log](screenshots/alert_1.png)
 
 ### Task Import
-![Task Import](screenshots/import.png)
+![Import](screenshots/import.png)
 
 ### Settings
 ![Settings](screenshots/settings.png)

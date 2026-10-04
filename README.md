@@ -253,7 +253,4 @@ ALLOWED_USER_IDS=your_telegram_user_id
 
 Contributions are welcome! Please open an issue or submit a PR.
 
-## 📧 Contact
 
-- **Telegram:** @sleept1ght
-- **Email:** sleepti3ht@gmail.com

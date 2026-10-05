@@ -83,51 +83,43 @@ graph TD
     classDef source fill:#18181b,stroke:#71717a,color:#a1a1aa,stroke-width:1px,stroke-dasharray: 5 5;
     classDef storage fill:#18181b,stroke:#ea5806,color:#fb923c,stroke-width:1px,stroke-dasharray: 3 3;
 
-    %% --- 1. Источники данных ---
-    subgraph Sources ["1. Источники данных (LIS-SKINS)"]
+    %% --- 1. Data Sources ---
+    subgraph Sources ["1. Data Sources (LIS-SKINS)"]
         direction LR
-        WS[(WebSocket<br/>public:obtained-skins<br/>0-100ms)]:::source
-        REST[(REST API<br/>/v1/market/search<br/>15s fallback)]:::source
+        WS[(WebSocket<br>public:obtained-skins<br>0-100ms)]:::source
+        REST[(REST API<br>/v1/market/search<br>15s fallback)]:::source
     end
 
-    %% --- 2. Ядро обработки ---
-    subgraph Core ["2. Ядро обработки (Hot Path)"]
+    %% --- 2. Core Processing ---
+    subgraph Core ["2. Core Processing (Hot Path)"]
         direction TB
-        Q[ITEM_QUEUE<br/>maxsize=5000<br/>Drop if full]:::orangeAccent
-        W[Single Worker<br/>WORKER_COUNT=1<br/>Детерминированный порядок]:::darkBg
-        DEDUP[Bounded Deduplication<br/>IN_FLIGHT / PROCESSED<br/>OrderedDict O(1)]:::amberAccent
-        MATCH[Task Matcher<br/>matches_user_task<br/>Cached tasks.json]:::darkBg
+        Q["ITEM_QUEUE<br>maxsize=5000<br>Drop if full"]:::orangeAccent
+        W["Single Worker<br>WORKER_COUNT=1<br>Deterministic order"]:::darkBg
+        DEDUP["Bounded Deduplication<br>IN_FLIGHT / PROCESSED<br>OrderedDict O(1)"]:::amberAccent
+        MATCH["Task Matcher<br>matches_user_task<br>Cached tasks.json"]:::darkBg
     end
 
-    %% --- 3. Исполнение и Состояние ---
-    subgraph Execution ["3. Исполнение и Состояние"]
+    %% --- 3. Execution & State ---
+    subgraph Execution ["3. Execution & State"]
         direction TB
-        LOCK((TASK_PURCHASE_LOCK<br/>Global Async Mutex)):::orangeAccent
-        BUY[Direct POST /v1/market/buy<br/>skip_unavailable=True<br/>БЕЗ check_availability]:::orangeAccent
-        JSON[(tasks.json<br/>Atomic write:<br/>tempfile + os.replace)]:::storage
-        TG[Telegram Bot<br/>Stats, Controls, Alerts]:::darkBg
+        LOCK(("TASK_PURCHASE_LOCK<br>Global Async Mutex")):::orangeAccent
+        BUY["Direct POST /v1/market/buy<br>skip_unavailable=True<br>NO check_availability"]:::orangeAccent
+        JSON[("tasks.json<br>Atomic write:<br>tempfile + os.replace")]:::storage
+        TG["Telegram Bot<br>Stats, Controls, Alerts"]:::darkBg
     end
 
-    %% --- Связи ---
+    %% --- Connections ---
     WS -->|Publication| Q
     REST -->|Polling cycle| Q
-    
     Q -->|await get()| W
     W -->|Check ID| DEDUP
     DEDUP -->|If new| MATCH
-    
-    MATCH -.->|Read (cached)| JSON
+    MATCH -.->|Read cached| JSON
     MATCH -->|Match found| LOCK
-    
-    LOCK -->|Serialize buy attempts| BUY
-    BUY -->|Update purchased_quantity| JSON
+    LOCK -->|Serialize attempts| BUY
+    BUY -->|Update quantity| JSON
     BUY -->|Notify result| TG
-    
     TG -->|Manage tasks| JSON
-
-    %% --- Link Styles ---
-    linkStyle default stroke:#52525b,stroke-width:1px;
-    linkStyle 4,5,6,7,8 stroke:#f97316,stroke-width:2px;
 ```
 ---
 ### Data Pipeline

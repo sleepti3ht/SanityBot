@@ -1,12 +1,38 @@
-# 🎯 SanityBot (LIS-SKINS Trading Bot)
 
-> **High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com)** with real-time WebSocket notifications and instant auto-purchase. No `check_availability()` delays — direct purchase saves 200–400ms per item.
+<div align="center">
 
-![python](https://img.shields.io/badge/Python-3.12%2B-blue)
-![status](https://img.shields.io/badge/status-active-success)
-![async](https://img.shields.io/badge/async-asyncio-009688)
+# SanityBot
+
+[![python](https://img.shields.io/badge/Python-3.12%2B-18181b?style=flat&logo=python)](https://python.org)
+[![status](https://img.shields.io/badge/status-active-ff6b00?style=flat)](https://github.com)
+[![async](https://img.shields.io/badge/async-asyncio-18181b?style=flat&logo=python)](https://docs.python.org/3/library/asyncio.html)
+[![license](https://img.shields.io/badge/license-MIT-18181b?style=flat)](LICENSE)
+
+</div>
+
+> ⚡ High-performance asynchronous trading bot for [LIS-SKINS](https://lis-skins.com). Real-time WebSocket ingestion, deterministic task matching, and instant auto-purchase. Zero `check_availability()` overhead saves 200–400ms per transaction.
 
 ---
+
+## ⚡ Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/your-repo/sanitybot.git
+cd sanitybot
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys and credentials
+
+# Run
+python main.py
+```
+
+---
+
 
 ## ✨ Features
 
@@ -50,39 +76,58 @@
 
 ```mermaid
 graph TD
-%% --- Styles ---
-classDef source fill:#2d3748,stroke:#4a5568,color:#fff,stroke-width:2px;
-classDef core fill:#4c51bf,stroke:#434190,color:#fff,stroke-width:2px;
-classDef auto fill:#38b2ac,stroke:#319795,color:#fff;
-classDef analytics fill:#ed8936,stroke:#dd6b20,color:#fff;
-classDef user fill:#f56565,stroke:#c53030,color:#fff;
+    %% --- Dark UI + Dark Orange Styles ---
+    classDef darkBg fill:#18181b,stroke:#3f3f46,color:#f4f4f5,stroke-width:1px;
+    classDef orangeAccent fill:#27272a,stroke:#f97316,color:#f97316,stroke-width:2px;
+    classDef amberAccent fill:#27272a,stroke:#d97706,color:#fbbf24,stroke-width:1px;
+    classDef source fill:#18181b,stroke:#71717a,color:#a1a1aa,stroke-width:1px,stroke-dasharray: 5 5;
+    classDef storage fill:#18181b,stroke:#ea5806,color:#fb923c,stroke-width:1px,stroke-dasharray: 3 3;
 
-%% --- Block 1: Sources & Core Engine ---
-subgraph "1. Data Collection & Core Engine"
-A[LIS-SKINS Platform]:::source -->|WebSocket 0-100ms| B[Sanity Bot Core]:::core
-A -->|REST API 15s| B
-B --> C[Auto-Buyer Engine<br/>Configurable Workers + Purchase Lock + ID Deduplication]:::auto
-C --> D[Telegram Alerts]:::auto
-end
+    %% --- 1. Источники данных ---
+    subgraph Sources ["1. Источники данных (LIS-SKINS)"]
+        direction LR
+        WS[(WebSocket<br/>public:obtained-skins<br/>0-100ms)]:::source
+        REST[(REST API<br/>/v1/market/search<br/>15s fallback)]:::source
+    end
 
-%% --- Block 2: Analytics Pipeline ---
-subgraph "2. Analytics & Parser Pipeline"
-B -->|Collects SteamIDs| E[(Bot Database<br/>Sellers with Gems/Styles)]:::analytics
-E --> F[steamid.txt]:::analytics
-F --> G[Parser Bot<br/>Targeted Scraping]:::analytics
-G --> H[CSV / Excel<br/>Filtered Rare Lots]:::analytics
-end
+    %% --- 2. Ядро обработки ---
+    subgraph Core ["2. Ядро обработки (Hot Path)"]
+        direction TB
+        Q[ITEM_QUEUE<br/>maxsize=5000<br/>Drop if full]:::orangeAccent
+        W[Single Worker<br/>WORKER_COUNT=1<br/>Детерминированный порядок]:::darkBg
+        DEDUP[Bounded Deduplication<br/>IN_FLIGHT / PROCESSED<br/>OrderedDict O(1)]:::amberAccent
+        MATCH[Task Matcher<br/>matches_user_task<br/>Cached tasks.json]:::darkBg
+    end
 
-%% --- Block 3: Manual Control & Feedback ---
-subgraph "3. Manual Control & Tasks"
-H --> I((Manual Review<br/>Excel Analysis)):::user
-I -->|Adds high-value items| J[Task System<br/>Filters & Thresholds]:::core
-J --> C
-D --> I
-end
+    %% --- 3. Исполнение и Состояние ---
+    subgraph Execution ["3. Исполнение и Состояние"]
+        direction TB
+        LOCK((TASK_PURCHASE_LOCK<br/>Global Async Mutex)):::orangeAccent
+        BUY[Direct POST /v1/market/buy<br/>skip_unavailable=True<br/>БЕЗ check_availability]:::orangeAccent
+        JSON[(tasks.json<br/>Atomic write:<br/>tempfile + os.replace)]:::storage
+        TG[Telegram Bot<br/>Stats, Controls, Alerts]:::darkBg
+    end
 
-%% --- Connections ---
-C -.->|Logs purchases| E
+    %% --- Связи ---
+    WS -->|Publication| Q
+    REST -->|Polling cycle| Q
+    
+    Q -->|await get()| W
+    W -->|Check ID| DEDUP
+    DEDUP -->|If new| MATCH
+    
+    MATCH -.->|Read (cached)| JSON
+    MATCH -->|Match found| LOCK
+    
+    LOCK -->|Serialize buy attempts| BUY
+    BUY -->|Update purchased_quantity| JSON
+    BUY -->|Notify result| TG
+    
+    TG -->|Manage tasks| JSON
+
+    %% --- Link Styles ---
+    linkStyle default stroke:#52525b,stroke-width:1px;
+    linkStyle 4,5,6,7,8 stroke:#f97316,stroke-width:2px;
 ```
 ---
 ### Data Pipeline
@@ -188,18 +233,19 @@ Live timings from the bot console (one `Scan pass` = one REST polling cycle):
 
 ---
 
-## 📝 Telegram Commands
 
-| Command | Description |
+## 📱 Telegram Interface
+
+| Command / Action | Description |
 |---|---|
-| `/start` | Open main menu |
-| `📋 My Tasks` | View tasks with `➕` `➖` buttons |
-| `📝 Create Task` | Create task via wizard |
-| `📥 Import Tasks` | Mass import: `Item Name;max_price;max_quantity;rule_type;rule_value` |
-| `📤 Export Tasks` | Export all tasks to text |
-| `💰 My Balance` | Show balance |
-| `📊 Statistics` | Show polling stats |
-| `🤖 Autobuy: ON/OFF` | Toggle auto-purchase |
+| `/start` | Open main control menu |
+| `📋 My Tasks` | View active tasks with `➕` `➖` quantity controls |
+| `📝 Create Task` | Interactive wizard for new task creation |
+| `📥 Import Tasks` | Bulk import via formatted text block |
+| `📤 Export Tasks` | Dump current configuration to text |
+| `💰 My Balance` | Fetch current LIS-SKINS account balance |
+| `📊 Statistics` | View real-time polling latency and volume metrics |
+| `🤖 Autobuy: ON/OFF` | Toggle execution engine without restarting the daemon |
 
 ---
 
